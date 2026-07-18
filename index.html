@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Project Manager Dashboard</title>
+    <link rel="icon" type="image/png" href="favicon.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div id="offline-banner" style="display:none">
+      Working in offline mode — changes won't sync
+    </div>
+    <div class="app-shell">
+      <main class="main-content">
+        <header class="topbar" id="overview">
+          <div>
+            <p class="eyebrow">Executive view</p>
+            <h2>Project status at a glance</h2>
+            <div class="app-version-row">
+              <span id="appVersionLabel"></span>
+              <button id="whatsNewBtn" class="whats-new-btn" title="What's new">?</button>
+            </div>
+          </div>
+          <div class="topbar-actions">
+            <button id="addNewBtn" class="secondary-btn">Add new</button>
+            <button id="importFromJiraBtn" class="secondary-btn">Import from Jira</button>
+            <button id="manageUsersBtn" class="secondary-btn">Manage users</button>
+            <button id="manageCustomersBtn" class="secondary-btn">Manage customers</button>
+            <button id="createBackupBtn" class="secondary-btn">Create backup</button>
+            <button id="backupsPanelBtn" class="secondary-btn">Backups</button>
+            <button id="settingsBtn" class="secondary-btn">⚙ Settings</button>
+            <button id="exportBtn" class="primary-btn">Export report</button>
+          </div>
+        </header>
+
+        <section class="stats-grid">
+          <article class="stat-card accent-blue">
+            <p>Total projects</p>
+            <h3 id="totalProjects">0</h3>
+            <span>Active initiatives</span>
+          </article>
+          <article class="stat-card accent-green" style="position:relative;">
+            <p>Project health</p>
+            <div id="healthBreakdown" style="margin-top:4px;display:grid;gap:3px;font-size:0.92rem;">
+              <span>🟢 <span id="healthGreenCount">0</span> Green</span>
+              <span id="healthYellowTrigger" style="cursor:pointer;">🟡 <span id="healthYellowCount">0</span> Yellow</span>
+              <span id="healthRedTrigger" style="cursor:pointer;">🔴 <span id="healthRedCount">0</span> Red</span>
+            </div>
+            <div id="healthYellowPopup" class="atrisk-popup hidden"></div>
+            <div id="healthRedPopup" class="atrisk-popup hidden"></div>
+          </article>
+          <article class="stat-card accent-amber" id="atRiskCard" style="position:relative;cursor:default;">
+            <p>Over Budget Projects</p>
+            <h3 id="atRiskCount">0</h3>
+            <span id="atRiskTrigger" style="color:#f97316;cursor:pointer;">Needs review</span>
+            <div id="atRiskPopup" class="atrisk-popup hidden"></div>
+          </article>
+          <article class="stat-card accent-purple" id="dueThisMonthCard" style="position:relative;cursor:default;">
+            <p>Projects Due completion this month</p>
+            <h3 id="dueThisMonthCount">0</h3>
+            <span id="dueThisMonthTrigger" style="color:#a78bfa;cursor:pointer;">View projects</span>
+            <div id="dueThisMonthActions" style="display:flex;gap:8px;margin-top:6px;">
+              <button id="mailDueMonthBtn" title="Copy table &amp; open email" style="background:none;border:none;cursor:pointer;color:#a78bfa;font-size:1rem;padding:2px 4px;">✉</button>
+            </div>
+            <div id="dueThisMonthPopup" class="atrisk-popup hidden"></div>
+          </article>
+        </section>
+
+        <section class="dashboard-grid top-priority">
+          <article class="panel" id="projects">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Live portfolio</p>
+                <h3>Projects</h3>
+              </div>
+              <span class="pill">Updated today</span>
+            </div>
+            <div class="filter-row">
+              <input id="searchInput" type="search" placeholder="Search by Project, Customer or PM" />
+              <select id="pmFilter">
+                <option value="All">All PMs</option>
+              </select>
+              <select id="healthFilter">
+                <option value="All">All health</option>
+                <option value="Green">Green</option>
+                <option value="Yellow">Yellow</option>
+                <option value="Red">Red</option>
+              </select>
+              <select id="progressFilter">
+                <option value="All">All progress</option>
+                <option value="0-39">0–39%</option>
+                <option value="40-69">40–69%</option>
+                <option value="70-100">70–100%</option>
+              </select>
+              <select id="duemonthFilter">
+                <option value="">All months</option>
+              </select>
+              <select id="regionFilter">
+                <option value="">All Regions</option>
+                <option value="APAC">APAC</option>
+                <option value="EMEA">EMEA</option>
+                <option value="North America">North America</option>
+                <option value="LatAm">LatAm</option>
+                <option value="Internal">Internal</option>
+                <option value="ROW">"ROW"</option>
+              </select>
+            </div>
+            <div class="table-wrap">
+              <div id="portfolioGroups" class="portfolio-groups"></div>
+            </div>
+          </article>
+
+        </section>
+      </main>
+    </div>
+
+    <div id="editProjectModal" class="modal hidden" aria-hidden="true">
+      <div class="modal-card edit-project-modal-card">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">Edit project</p>
+            <h3>Project Manager Update</h3>
+          </div>
+          <button id="closeEditModalBtn" class="ghost-btn" type="button" aria-label="Close">×</button>
+        </div>
+        <form id="editProjectForm" class="status-form modal-form">
+          <label>
+            Customer name
+            <div class="autocomplete-wrap">
+              <input id="editCustomerName" type="text" autocomplete="off" />
+              <ul class="autocomplete-list hidden"></ul>
+            </div>
+          </label>
+          <label>
+            Project Name
+            <input id="editProjectName" type="text" />
+          </label>
+          <label>
+            PM
+            <select id="editProjectManager"></select>
+          </label>
+          <label>
+            Project Health by PM
+            <select id="editHealth">
+              <option value="Green">Green</option>
+              <option value="Yellow">Yellow</option>
+              <option value="Red">Red</option>
+            </select>
+          </label>
+          <label id="pmStatusLabel">
+            Project status by PM
+            <textarea id="editPmStatus" rows="3" placeholder="Explain why this project is at risk…" style="resize:vertical;"></textarea>
+          </label>
+          <label>
+            Region
+            <select id="editRegion">
+              <option value="">— select —</option>
+              <option value="APAC">APAC</option>
+              <option value="EMEA">EMEA</option>
+              <option value="North America">North America</option>
+              <option value="LatAm">LatAm</option>
+              <option value="Internal">Internal</option>
+              <option value="ROW">"ROW"</option>
+            </select>
+          </label>
+          <label id="riskReasonLabel">
+            Risk Reason (Budget)
+            <select id="editRiskReason">
+              <option value="">-- Select Risk Reason --</option>
+              <option value="54143">Non-responsive and/or demanding customer</option>
+              <option value="54144">Delayed support from Dev/Core/R&amp;D</option>
+              <option value="54145">Churn Risk/Task force customer</option>
+              <option value="54146">Dev work exceeded estimation</option>
+              <option value="54147">Hours not received from sales as promised</option>
+              <option value="54148">Solution changes after the initial estimation, discovered post Kick Off calls</option>
+              <option value="54149">Product gaps / immaturity</option>
+              <option value="54150">Items discussed in pre-sale assumed incorrectly to be OOB</option>
+              <option value="57872">Project actual work does not match estimation</option>
+            </select>
+          </label>
+          <label>
+            AT Link
+            <input id="editAtLink" type="url" placeholder="https://..." />
+          </label>
+          <label>
+            CSM
+            <input id="editCsm" type="text" placeholder="CSM name" />
+          </label>
+          <label>
+            Sales
+            <input id="editSales" type="text" placeholder="Sales name" />
+          </label>
+          <label>
+            End Date
+            <div style="display:flex;gap:6px;align-items:center;">
+              <input id="editDueDateText" type="text" placeholder="dd/mm/yy" maxlength="8" style="flex:1;" />
+              <button type="button" id="editDueDatePickerBtn" title="Pick date" style="background:none;border:1px solid #334155;border-radius:8px;padding:5px 8px;cursor:pointer;color:#94a3b8;font-size:1rem;">📅</button>
+              <input id="editDueDateHidden" type="date" style="display:none;" />
+            </div>
+          </label>
+          <label>Project Status</label>
+          <div class="editor-toolbar">
+            <button type="button" class="ghost-btn small-btn" data-rich-command="bold" title="Bold"><b>B</b></button>
+            <button type="button" class="ghost-btn small-btn" data-rich-command="italic" title="Italic"><i>I</i></button>
+            <button type="button" class="ghost-btn small-btn" data-rich-command="underline" title="Underline"><u>U</u></button>
+            <span class="toolbar-sep"></span>
+            <button type="button" class="ghost-btn small-btn" data-rich-command="insertUnorderedList" title="Bullet list">• List</button>
+            <button type="button" class="ghost-btn small-btn" data-rich-command="insertOrderedList" title="Numbered list">1. List</button>
+            <span class="toolbar-sep"></span>
+            <button type="button" class="ghost-btn small-btn" data-rich-command="outdent" title="Decrease indent">⇤</button>
+            <button type="button" class="ghost-btn small-btn" data-rich-command="indent" title="Increase indent">⇥</button>
+            <span class="toolbar-sep"></span>
+            <span class="toolbar-color-wrap">
+              <span class="toolbar-color-a">A</span>
+              <label class="toolbar-color-btn ghost-btn small-btn" title="Text color">
+                <span id="editorColorSwatch" style="display:inline-block;width:14px;height:14px;border-radius:3px;background:#eff6ff;border:1px solid rgba(255,255,255,0.25);"></span>
+                <input type="color" id="editorColorPicker" value="#eff6ff" style="width:0;height:0;opacity:0;position:absolute;">
+              </label>
+            </span>
+            <span class="toolbar-sep"></span>
+            <select id="editorFontSize" title="Font size" style="width:58px;padding:4px 6px;border:1px solid var(--line);border-radius:10px;background:rgba(15,23,42,0.95);color:var(--text);font-family:inherit;font-size:0.88rem;cursor:pointer;">
+              <option value="8" selected>8</option>
+              <option value="9">9</option>
+              <option value="10">10</option>
+              <option value="11">11</option>
+              <option value="12">12</option>
+              <option value="14">14</option>
+              <option value="16">16</option>
+              <option value="18">18</option>
+              <option value="20">20</option>
+              <option value="24">24</option>
+              <option value="28">28</option>
+              <option value="36">36</option>
+              <option value="48">48</option>
+              <option value="72">72</option>
+            </select>
+            <button type="button" id="editorInsertLink" class="ghost-btn small-btn" title="Insert link">🔗</button>
+          </div>
+          <div id="editorLinkPopup" style="display:none;margin-top:6px;background:#0f172a;border:1px solid #223249;border-radius:10px;padding:10px 12px;display:none;gap:8px;flex-direction:column;">
+            <input id="editorLinkUrl" type="url" placeholder="https://..." style="width:100%;border:1px solid #334155;background:#0b1220;color:#eff6ff;border-radius:8px;padding:7px 10px;font-size:0.9rem;" />
+            <input id="editorLinkText" type="text" placeholder="Display text (optional)" style="width:100%;border:1px solid #334155;background:#0b1220;color:#eff6ff;border-radius:8px;padding:7px 10px;font-size:0.9rem;" />
+            <div style="display:flex;gap:8px;justify-content:flex-end;">
+              <button type="button" id="editorLinkCancel" class="ghost-btn small-btn">Cancel</button>
+              <button type="button" id="editorLinkInsert" class="primary-btn small-btn">Insert</button>
+            </div>
+          </div>
+          <div id="editStatusEditor" class="rich-editor" contenteditable="true" spellcheck="true" lang="en"></div>
+          <div class="modal-actions">
+            <button type="button" id="cancelEditModalBtn" class="ghost-btn">Cancel</button>
+            <button type="submit" class="primary-btn">Save changes</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div id="projectModal" class="modal hidden" aria-hidden="true">
+      <div class="modal-card">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">New project</p>
+            <h3>Add a project</h3>
+          </div>
+          <button id="closeModalBtn" class="ghost-btn" type="button" aria-label="Close">×</button>
+        </div>
+        <form id="modalProjectForm" class="status-form modal-form">
+          <label>
+            Customer name
+            <div class="autocomplete-wrap">
+              <input id="modalProjectCustomer" type="text" placeholder="e.g. Acme Corp" autocomplete="off" />
+              <ul class="autocomplete-list hidden"></ul>
+            </div>
+          </label>
+          <label>
+            Project name
+            <input id="modalProjectName" type="text" required placeholder="e.g. CRM Migration" />
+          </label>
+          <label>
+            OPP Link (Salesforce)
+            <input id="modalProjectOppLink" type="url" placeholder="https://kaltura.lightning.force.com/..." />
+          </label>
+          <label>
+            PM name
+            <div class="autocomplete-wrap">
+              <input id="modalProjectPm" type="text" required placeholder="Select or type PM" autocomplete="off" />
+              <ul class="autocomplete-list hidden"></ul>
+            </div>
+          </label>
+          <label>
+            CSM name
+            <div class="autocomplete-wrap">
+              <input id="modalProjectCsm" type="text" placeholder="Select or type CSM" autocomplete="off" />
+              <ul class="autocomplete-list hidden"></ul>
+            </div>
+          </label>
+          <label>
+            Sales name
+            <div class="autocomplete-wrap">
+              <input id="modalProjectSales" type="text" placeholder="Select or type Sales" autocomplete="off" />
+              <ul class="autocomplete-list hidden"></ul>
+            </div>
+          </label>
+          <label>
+            Jira URL
+            <input id="modalProjectJira" type="url" placeholder="https://jira.example.com/PROJ" />
+          </label>
+          <label>
+            NRR (hours)
+            <input id="modalProjectNrr" type="number" min="0" step="0.1" placeholder="e.g. 10" required />
+          </label>
+          <label>
+            Start Date
+            <div style="display:flex;gap:6px;align-items:center;">
+              <input id="modalProjectStartDate" type="text" placeholder="dd/mm/yy" maxlength="8" style="flex:1;" required />
+              <button type="button" id="modalStartPickerBtn" title="Pick date" style="background:none;border:1px solid #334155;border-radius:8px;padding:5px 8px;cursor:pointer;color:#94a3b8;font-size:1rem;">📅</button>
+              <input id="modalProjectStartDateHidden" type="date" style="display:none;" />
+            </div>
+          </label>
+          <label>
+            End Date
+            <div style="display:flex;gap:6px;align-items:center;">
+              <input id="modalProjectDueDate" type="text" placeholder="dd/mm/yy" maxlength="8" style="flex:1;" required />
+              <button type="button" id="modalEndPickerBtn" title="Pick date" style="background:none;border:1px solid #334155;border-radius:8px;padding:5px 8px;cursor:pointer;color:#94a3b8;font-size:1rem;">📅</button>
+              <input id="modalProjectDueDateHidden" type="date" style="display:none;" />
+            </div>
+          </label>
+          <label>
+            NRR value
+            <input id="modalProjectNrrValue" type="text" placeholder="e.g. $120" required />
+          </label>
+          <label>
+            MRR value
+            <input id="modalProjectMrrValue" type="text" placeholder="e.g. $8,000" required />
+          </label>
+          <label>
+            Region
+            <select id="modalProjectRegion">
+              <option value="">— select —</option>
+              <option value="APAC">APAC</option>
+              <option value="EMEA">EMEA</option>
+              <option value="North America">North America</option>
+              <option value="LatAm">LatAm</option>
+              <option value="Internal">Internal</option>
+              <option value="ROW">"ROW"</option>
+            </select>
+          </label>
+          <div class="modal-actions">
+            <button type="button" id="cancelModalBtn" class="ghost-btn">Cancel</button>
+            <button type="submit" class="primary-btn">Save</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+
+
+    <div id="usersModal" class="modal hidden" aria-hidden="true">
+      <div class="modal-card">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">Team</p>
+            <h3>Manage users</h3>
+          </div>
+          <button id="closeUsersModalBtn" class="ghost-btn" type="button" aria-label="Close">×</button>
+        </div>
+        <input id="usersSearchInput" type="search" placeholder="Search users…" style="margin-bottom:10px;width:100%;box-sizing:border-box;border:1px solid var(--line);background:#0b1220;color:var(--text);border-radius:12px;padding:10px 12px;font-family:inherit;font-size:0.95rem;" />
+        <div id="usersModalBody">
+          <!-- rendered by renderUsersModal() -->
+        </div>
+        <div style="margin-top:12px;display:flex;gap:8px;">
+          <button id="addUserBtn" class="secondary-btn small-btn" type="button">+ Add user</button>
+          <button id="syncUsersFromJiraBtn" class="ghost-btn small-btn" type="button" title="Sync Jira Account IDs for all users">↻ Sync Jira IDs</button>
+        </div>
+        <div id="addUserForm" class="status-form" style="display:none; margin-top:12px;">
+          <label>Search Jira user
+            <div class="autocomplete-wrap">
+              <input id="newUserJiraSearch" type="text" autocomplete="off" placeholder="Start typing a name..." />
+              <div id="newUserJiraResults" class="autocomplete-list hidden"></div>
+            </div>
+          </label>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+            <label>First name<input id="newUserFirstName" type="text" required placeholder="e.g. Janina" /></label>
+            <label>Last name<input id="newUserLastName" type="text" required placeholder="e.g. Pomme" /></label>
+          </div>
+          <label>Roles
+            <div style="display:flex;gap:16px;margin-top:4px;">
+              <label style="display:flex;align-items:center;gap:4px;color:#dbeafe;font-size:0.9rem;"><input type="checkbox" id="newUserRolePM" value="PM"> PM</label>
+              <label style="display:flex;align-items:center;gap:4px;color:#dbeafe;font-size:0.9rem;"><input type="checkbox" id="newUserRoleCSM" value="CSM"> CSM</label>
+              <label style="display:flex;align-items:center;gap:4px;color:#dbeafe;font-size:0.9rem;"><input type="checkbox" id="newUserRoleSales" value="Sales"> Sales</label>
+              <label style="display:flex;align-items:center;gap:4px;color:#dbeafe;font-size:0.9rem;"><input type="checkbox" id="newUserRoleIE" value="IE"> IE</label>
+            </div>
+          </label>
+          <input type="hidden" id="newUserJiraAccountId" value="">
+          <div class="modal-actions">
+            <button type="button" id="cancelAddUserBtn" class="ghost-btn">Cancel</button>
+            <button type="button" id="saveAddUserBtn" class="primary-btn">Save</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="customersModal" class="modal hidden" aria-hidden="true">
+      <div class="modal-card">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">Customers</p>
+            <h3>Manage customers</h3>
+          </div>
+          <button id="closeCustomersModalBtn" class="ghost-btn" type="button" aria-label="Close">×</button>
+        </div>
+        <input id="customersSearchInput" type="search" placeholder="Search customers…" style="margin-bottom:10px;width:100%;box-sizing:border-box;border:1px solid var(--line);background:#0b1220;color:var(--text);border-radius:12px;padding:10px 12px;font-family:inherit;font-size:0.95rem;" />
+        <div id="customersModalBody">
+          <!-- rendered by renderCustomersModal() -->
+        </div>
+        <div style="margin-top:12px;">
+          <button id="addCustomerListBtn" class="secondary-btn small-btn" type="button">+ Add customer</button>
+        </div>
+        <div id="addCustomerListForm" class="status-form" style="display:none; margin-top:12px;">
+          <label>Customer name<input id="listNewCustomerName" type="text" required placeholder="e.g. Acme Corp" /></label>
+          <label>Salesforce link<input id="listNewCustomerSfLink" type="url" placeholder="https://kaltura.lightning.force.com/..." /></label>
+          <div class="modal-actions">
+            <button type="button" id="cancelCustomerListBtn" class="ghost-btn">Cancel</button>
+            <button type="button" id="saveCustomerListBtn" class="primary-btn">Save</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="backupsModal" class="modal hidden" aria-hidden="true">
+      <div class="backups-modal-card">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">History</p>
+            <h3>Backups</h3>
+          </div>
+          <button id="closeBackupsModalBtn" class="ghost-btn" type="button" aria-label="Close">×</button>
+        </div>
+        <div class="backups-layout">
+          <div class="backup-main" id="backupMain">
+            <!-- rendered by renderBackupsPanel() -->
+          </div>
+          <div class="backup-sidebar" id="backupSidebar">
+            <!-- rendered by renderBackupsPanel() -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="addCustomerModal" class="modal hidden" aria-hidden="true">
+      <div class="modal-card">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">New customer</p>
+            <h3>Add a customer</h3>
+          </div>
+          <button id="closeAddCustomerModalBtn" class="ghost-btn" type="button" aria-label="Close">×</button>
+        </div>
+        <div class="status-form" style="margin-top:8px;">
+          <label>
+            Customer name
+            <input id="newCustomerName" type="text" placeholder="e.g. Acme Corp" required />
+          </label>
+          <label>
+            Salesforce link
+            <input id="newCustomerSfLink" type="url" placeholder="https://kaltura.lightning.force.com/..." />
+          </label>
+          <div class="modal-actions">
+            <button type="button" id="cancelAddCustomerBtn" class="ghost-btn">Cancel</button>
+            <button type="button" id="saveAddCustomerBtn" class="primary-btn">Save</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="settingsModal" class="modal hidden" aria-hidden="true">
+      <div class="modal-card" style="max-width:520px;">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">Configuration</p>
+            <h3>Settings</h3>
+          </div>
+          <button id="closeSettingsBtn" class="ghost-btn" type="button" aria-label="Close">×</button>
+        </div>
+        <div class="status-form" style="margin-top:8px;">
+
+          <p class="eyebrow" style="margin-bottom:6px;">Jira API</p>
+          <p class="muted" style="margin-bottom:4px;">Generate a token at <a href="https://id.atlassian.net/manage-profile/security/api-tokens" target="_blank" rel="noreferrer" style="color:#7dd3fc;">id.atlassian.net</a>.</p>
+          <label>Jira email<input id="settingsJiraEmail" type="email" placeholder="your@email.com" /></label>
+          <label>Jira API token<input id="settingsJiraToken" type="password" placeholder="Paste your API token" /></label>
+
+          <hr style="border-color:#334155;margin:16px 0;" />
+
+          <p class="eyebrow" style="margin-bottom:6px;">Auto-poll</p>
+          <label>Poll interval (minutes)<input id="settingsPollInterval" type="number" min="1" max="120" placeholder="15" style="width:80px;" /></label>
+          <label>Watched assignees (comma-separated emails)<input id="settingsWatchedAssignees" type="text" placeholder="arik.perera@kaltura.com, Srinivas.Duddu@kaltura.com" /></label>
+
+          <hr style="border-color:#334155;margin:16px 0;" />
+
+          <p class="eyebrow" style="margin-bottom:6px;">Salesforce</p>
+          <p class="muted" style="margin-bottom:4px;">Connected App credentials for SF enrichment. Sent to the local proxy only — never stored in the browser.</p>
+          <label>SF Username<input id="settingsSFUsername" type="email" placeholder="you@kaltura.com" /></label>
+          <label>SF Password + Security Token<input id="settingsSFPassword" type="password" placeholder="PasswordSecurityToken (concatenated)" /></label>
+          <label>Connected App Client ID<input id="settingsSFClientId" type="text" placeholder="Consumer Key" /></label>
+          <label>Connected App Client Secret<input id="settingsSFClientSecret" type="password" placeholder="Consumer Secret" /></label>
+          <p id="settingsSFStatus" class="muted" style="min-height:18px;font-size:0.8rem;"></p>
+
+          <div class="modal-actions">
+            <button type="button" id="cancelSettingsBtn" class="ghost-btn">Cancel</button>
+            <button type="button" id="saveSettingsBtn" class="primary-btn">Save &amp; sync</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="deleteProjectModal" class="modal hidden" aria-hidden="true">
+      <div class="modal-card">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">Delete project</p>
+            <h3 id="deleteProjectModalTitle">Project name</h3>
+          </div>
+        </div>
+        <p class="muted" style="margin-bottom:16px;">This action cannot be undone. Would you like to back up this project to the latest backup record first?</p>
+        <div class="modal-actions">
+          <button type="button" id="cancelDeleteProjectBtn" class="ghost-btn">Cancel</button>
+          <button type="button" id="deleteProjectBtn" class="ghost-btn">Delete</button>
+          <button type="button" id="backupAndDeleteProjectBtn" class="primary-btn">Backup &amp; Delete</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="exportChoiceModal" class="modal hidden" aria-hidden="true">
+      <div class="modal-card" style="max-width:420px;">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">Export report</p>
+            <h3>What would you like to do?</h3>
+          </div>
+        </div>
+        <p class="muted" style="margin-bottom:16px;">Choose whether to export only, or export and create a backup snapshot at the same time.</p>
+        <div class="modal-actions">
+          <button type="button" id="exportCancelBtn" class="secondary-btn">Cancel</button>
+          <button type="button" id="exportOnlyBtn" class="ghost-btn">Report only</button>
+          <button type="button" id="exportAndBackupBtn" class="primary-btn">Report + Backup</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="newProjectsBanner" class="new-projects-banner hidden" role="status" aria-live="polite">
+      <span id="newProjectsBannerMsg"></span>
+      <button id="newProjectsBannerDismiss" class="ghost-btn" style="padding:2px 8px;font-size:0.8rem;">Dismiss</button>
+    </div>
+
+    <div id="importModal" class="modal hidden" aria-hidden="true">
+      <div class="modal-card" style="max-width:780px;width:min(780px,calc(100vw - 24px));max-height:calc(100vh - 40px);">
+        <div class="modal-header">
+          <h3>Import from Jira</h3>
+          <button id="closeImportModalBtn" class="ghost-btn" type="button">✕</button>
+        </div>
+        <div id="importStep1">
+          <label style="display:block;margin-bottom:8px;color:#bfdbfe;">Search PM by name</label>
+          <div class="autocomplete-wrap">
+            <input id="importPmSearch" type="text" placeholder="e.g. Tal Sabo" autocomplete="off"
+                   style="width:100%;border:1px solid var(--line);background:#0b1220;color:var(--text);border-radius:12px;padding:10px 12px;font-size:0.95rem;" />
+            <div id="importPmResults" class="autocomplete-list hidden"></div>
+          </div>
+          <p id="importPmStatus" style="color:#64748b;font-size:0.88rem;margin-top:8px;min-height:20px;"></p>
+        </div>
+        <div id="importStep2" class="hidden">
+          <div id="importStep2Header" style="margin-bottom:12px;color:#bfdbfe;"></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <label style="display:flex;align-items:center;gap:6px;color:#bfdbfe;font-size:0.9rem;cursor:pointer;">
+              <input type="checkbox" id="importSelectAll"> Select all new
+            </label>
+            <span id="importCount" style="font-size:0.88rem;color:#64748b;"></span>
+          </div>
+          <div id="importProjectList" style="max-height:calc(100vh - 260px);overflow-y:auto;display:grid;gap:6px;"></div>
+          <div class="modal-actions" style="margin-top:12px;">
+            <button id="importBackBtn" class="ghost-btn">← Back</button>
+            <button id="importConfirmBtn" class="primary-btn">Import selected</button>
+          </div>
+          <p id="importProgress" style="color:#7dd3fc;font-size:0.88rem;margin-top:8px;text-align:center;min-height:20px;"></p>
+        </div>
+      </div>
+    </div>
+
+    <div id="whatsNewModal" class="modal hidden" aria-hidden="true">
+      <div class="modal-card" style="max-width:480px;">
+        <div class="modal-header">
+          <h3>What's New</h3>
+          <button id="closeWhatsNewBtn" class="ghost-btn" type="button" aria-label="Close">✕</button>
+        </div>
+        <div id="whatsNewBody" style="max-height:420px;overflow-y:auto;padding:4px 0;"></div>
+      </div>
+    </div>
+
+    <div id="addNewChoiceModal" class="modal hidden" aria-hidden="true">
+      <div class="modal-card" style="max-width:400px;">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">Add new</p>
+            <h3>What would you like to add?</h3>
+          </div>
+        </div>
+        <p class="muted" style="margin-bottom:16px;">Choose whether to add a full project or a task linked to an existing project.</p>
+        <div class="modal-actions">
+          <button type="button" id="addNewChoiceProjectBtn" class="secondary-btn">New Project</button>
+          <button type="button" id="addNewChoiceTaskBtn" class="primary-btn">New Task</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="taskModal" class="modal hidden" aria-hidden="true">
+      <div class="modal-card">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">New task</p>
+            <h3>Add a task</h3>
+          </div>
+          <button id="closeTaskModalBtn" class="ghost-btn" type="button" aria-label="Close">×</button>
+        </div>
+        <form id="taskModalForm" class="status-form modal-form">
+          <label>
+            Customer name
+            <div class="autocomplete-wrap">
+              <input id="taskCustomer" type="text" placeholder="Select customer" autocomplete="off" required />
+              <ul class="autocomplete-list hidden"></ul>
+            </div>
+          </label>
+          <label>
+            Project name
+            <select id="taskProject" required>
+              <option value="">— select customer first —</option>
+            </select>
+          </label>
+          <label>
+            Jira URL
+            <input id="taskJira" type="text" readonly placeholder="Auto-filled from project" style="opacity:0.6;" />
+          </label>
+          <label>
+            Region
+            <input id="taskRegion" type="text" readonly placeholder="Auto-filled from project" style="opacity:0.6;" />
+          </label>
+          <label>
+            Task owner
+            <div class="autocomplete-wrap">
+              <input id="taskOwner" type="text" placeholder="Select or type owner" autocomplete="off" required />
+              <ul class="autocomplete-list hidden"></ul>
+            </div>
+          </label>
+          <div class="modal-actions">
+            <button type="button" id="cancelTaskModalBtn" class="ghost-btn">Cancel</button>
+            <button type="submit" class="primary-btn">Save task</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
