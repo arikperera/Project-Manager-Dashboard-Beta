@@ -320,6 +320,7 @@ export default {
       return json({ ok: true });
     }
 
-    return json({ error: 'Not found' }, 404);
+    // Fall through to static assets (index.html, app.js, etc.)
+    return env.ASSETS.fetch(request);
   },
 };
